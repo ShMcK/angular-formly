@@ -223,6 +223,29 @@ describe('formly-form', () => {
         expect(autoCompleteFixEl).to.exist;
       }));
     });
+
+    describe(`fieldsChange`, () => {
+      it(`should not deal well when fields change when not set`, () => {
+        compileAndDigest(template);
+        scope.fields = [
+          {template: input, key: 'baz'}
+        ];
+        expect(() => scope.$digest()).to.throw();
+      });
+
+      it.only(`should deal well when the fields change when this is set to true`, () => {
+        scope.options.fieldsChange = true;
+        compileAndDigest(`
+          <formly-form model="model" options="options" fields="fields">
+            <button>Foo</button>
+          </formly-form>
+        `);
+        scope.fields = [
+          {template: input, key: 'baz'}
+        ];
+        expect(() => scope.$digest()).to.not.throw();
+      });
+    });
   });
 
   function compileAndDigest(template) {

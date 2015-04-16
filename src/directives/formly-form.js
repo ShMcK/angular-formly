@@ -15,7 +15,8 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
       formState: formlyApiCheck.object.optional,
       resetModel: formlyApiCheck.func.optional,
       updateInitialValue: formlyApiCheck.func.optional,
-      removeChromeAutoComplete: formlyApiCheck.bool.optional
+      removeChromeAutoComplete: formlyApiCheck.bool.optional,
+      fieldsChange: formlyApiCheck.bool.optional
     }).strict.optional
   ];
   return {
@@ -54,11 +55,13 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
     },
     controller: function($scope) {
       setupOptions();
+
+      $scope.setupFields = setupFields;
+
       $scope.model = $scope.model || {};
       $scope.fields = $scope.fields || [];
 
-      angular.forEach($scope.fields, attachKey); // attaches a key based on the index if a key isn't specified
-      angular.forEach($scope.fields, setupWatchers); // setup watchers for all fields
+      $scope.setupFields($scope.fields);
 
       // watch the model and evaluate watch expressions that depend on it.
       $scope.$watch('model', function onResultUpdate(newResult) {
@@ -77,7 +80,11 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
           updateInitialValue,
           resetModel
         });
+      }
 
+      function setupFields(fields) {
+        angular.forEach(fields, attachKey); // attaches a key based on the index if a key isn't specified
+        angular.forEach(fields, setupWatchers); // setup watchers for all fields
       }
 
       function updateInitialValue() {
@@ -166,6 +173,21 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
         input.setAttribute('autocomplete', 'address-level4');
         input.setAttribute('hidden', true);
         el[0].appendChild(input);
+      }
+
+      // if fields will change, we'll watch them for changes and recompile everything if they ever do.
+      if (scope.options.fieldsChange) {
+        console.log('fields will change!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+        scope.$watch('fields', function onFieldsChange(newFields, oldFields) {
+          console.log('\n\n\n\n\n\nfields changed\n\n\n\n\n\n\n');
+          if (oldFields === undefined || oldFields === newFields) {
+            console.log('returning');
+            return;
+          }
+          console.log('\nNew Value:', newFields);
+          console.log('\nOld Value:', oldFields);
+          scope.setupFields(newFields);
+        });
       }
     }
   };
