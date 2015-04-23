@@ -1,13 +1,15 @@
 import {expect} from 'chai';
+import sinon from 'sinon';
 
 describe('formly-form', () => {
   const input = '<input ng-model="model[options.key]" />';
-  let $compile, scope;
+  let $compile, scope, el, $timeout;
 
   beforeEach(window.module('formly'));
-  beforeEach(inject((_$compile_, $rootScope) => {
+  beforeEach(inject((_$compile_, $rootScope, _$timeout_) => {
     $compile = _$compile_;
     scope = $rootScope.$new();
+    $timeout = _$timeout_;
   }));
 
   it('should use ng-form as the default root tag', () => {
@@ -99,6 +101,61 @@ describe('formly-form', () => {
 
     expect(scope.parent).to.have.property('formly_0_in_my_ng_repeat');
     expect(scope.parent).to.have.property('formly_1_in_my_ng_repeat');
+  });
+
+  it(`should deal with a hide expressionProperty by itself`, () => {
+    scope.model = {};
+    scope.fields = [
+      {
+        template: input,
+        key: 'foo',
+        expressionProperties: {
+          hide: '!model.foo'
+        },
+        hide: true
+      }
+    ];
+    compileAndDigest(`
+      <formly-form model="model" fields="fields"></formly-form>
+    `);
+    $timeout.flush(); // $timeout used in formly-field
+
+    // do this a few times
+    toggleShown(true);
+    toggleShown(false);
+    toggleShown(true);
+    toggleShown(false);
+
+    function toggleShown(show) {
+      scope.model.foo = show;
+      scope.$digest();
+      $timeout.flush();
+
+      const formlyFieldsNodes = el[0].querySelectorAll('.formly-field');
+      expect(formlyFieldsNodes.length === 1).to.equal(show);
+    }
+
+  });
+
+  it.only(`should run all expressionProperties even when hidden`, () => {
+    scope.model = {};
+    const fooSpy = sinon.spy();
+    const field = {
+      template: input,
+      key: 'foo',
+      expressionProperties: {
+        'data.foo': fooSpy
+      },
+      hide: true
+    };
+    scope.fields = [field];
+
+    compileAndDigest(`
+      <formly-form model="model" fields="fields"></formly-form>
+    `);
+    $timeout.flush(); // $timeout used in formly-field
+
+    expect(fooSpy).to.have.been.called();
   });
 
   describe(`options`, () => {
@@ -239,7 +296,7 @@ describe('formly-form', () => {
   });
 
   function compileAndDigest(template) {
-    const el = $compile(template)(scope);
+    el = $compile(template)(scope);
     scope.$digest();
     return el;
   }

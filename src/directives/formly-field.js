@@ -48,13 +48,7 @@ function formlyField($http, $q, $compile, $templateCache, formlyConfig, formlyVa
         $timeout(function runExpressionsOnNextTick() {
           var field = $scope.options;
           var currentValue = valueGetterSetter();
-          angular.forEach(field.expressionProperties, function runExpression(expression, prop) {
-            var setter = $parse(prop).assign;
-            var promise = $q.when(formlyUtil.formlyEval($scope, expression, currentValue));
-            promise.then(function setFieldValue(value) {
-              setter(field, value);
-            });
-          });
+          angular.forEach(field.expressionProperties, formlyUtil.runExpression.bind(null, $scope, currentValue, field));
         });
       }
 
@@ -73,7 +67,8 @@ function formlyField($http, $q, $compile, $templateCache, formlyConfig, formlyVa
         formlyUtil.reverseDeepMerge(options, {
           data: {},
           templateOptions: {},
-          validation: {}
+          validation: {},
+          expressionProperties: {}
         });
       }
 

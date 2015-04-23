@@ -60,8 +60,9 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
       form: '=?',
       options: '=?'
     },
-    controller: /* @ngInject */ function FormlyFormController($scope) {
+    controller: /* @ngInject */ function FormlyFormController($scope, formlyUtil) {
       setupOptions();
+      const fakeScopesForHiddenFields = {};
       $scope.model = $scope.model || {};
       $scope.fields = $scope.fields || [];
 
@@ -70,11 +71,53 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
 
       // watch the model and evaluate watch expressions that depend on it.
       $scope.$watch('model', function onResultUpdate(newResult) {
-        angular.forEach($scope.fields, function runFieldExpressionProperties(field) {
+        angular.forEach($scope.fields, function runFieldExpressionProperties(field, index) {
           /*jshint -W030 */
-          field.runExpressions && field.runExpressions(newResult);
+
+          // This is simpler than it looks. The only time the complex stuff gets run is if the field doesn't get
+          // runExpressions set on it :-(
+
+          if (field.runExpressions) {
+            field.runExpressions(newResult);
+          } else if (field.expressionProperties) {
+            console.log('hey');
+            const id = formlyUtil.getFieldId($scope.formId, field, index);
+            fakeScopesForHiddenFields[id] = fakeScopesForHiddenFields[id] || createFakeScope(field, index, id);
+            const scope = fakeScopesForHiddenFields[id];
+            const currentValue = scope.model[field.key];
+            angular.forEach(
+              field.expressionProperties, function(exp, prop) {
+                console.log(exp, prop);
+                formlyUtil.runExpression.bind(null, scope, currentValue, field)(exp, prop);
+              }
+            );
+          }
         });
       }, true);
+
+      /**
+       * When a field is hidden, it has no scope to evaluate run expressions on.
+       * @param field
+       * @param index
+       * @param id
+       * @returns {*|Object}
+       */
+      function createFakeScope(field, index, id) {
+        const fakeScope = $scope.$new();
+        angular.extend(fakeScope, {
+          options: field,
+          model: field.model || $scope.model,
+          formId: $scope.formId,
+          index,
+          fields: $scope.fields,
+          formState: $scope.options.formState,
+          form: $scope[$scope.formId],
+          id,
+          to: field.templateOptions,
+          fc: {}
+        });
+        return fakeScope;
+      }
 
       function setupOptions() {
         formlyApiCheck.throw(optionsApi, [$scope.options], {prefix: 'formly-form options check'});
@@ -158,9 +201,9 @@ function formlyForm(formlyUsability, $parse, formlyApiCheck, formlyConfig) {
       }
     },
     link(scope, el, attrs) {
+      scope.formId = attrs.name;
       if (attrs.form) {
-        const formId = attrs.name;
-        $parse(attrs.form).assign(scope.$parent, scope[formId]);
+        $parse(attrs.form).assign(scope.$parent, scope[scope.formId]);
       }
 
       // chrome autocomplete lameness
